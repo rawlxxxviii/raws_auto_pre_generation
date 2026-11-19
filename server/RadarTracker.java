@@ -1,11 +1,17 @@
 package com.gmail.rawlxxxviii.raws_auto_pre_generation.server;
 
+import com.gmail.rawlxxxviii.raws_auto_pre_generation.config.DimensionPreGenConfig;
+import com.gmail.rawlxxxviii.raws_auto_pre_generation.config.ServerConfig;
 import com.gmail.rawlxxxviii.raws_auto_pre_generation.network.PacketHandler;
 import com.gmail.rawlxxxviii.raws_auto_pre_generation.network.SyncChunkRadarPacket;
+import com.mojang.brigadier.CommandDispatcher;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.storage.LevelResource;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.TickEvent;
@@ -22,22 +28,18 @@ import java.util.concurrent.CompletableFuture;
 @Mod.EventBusSubscriber
 public class RadarTracker {
     private static final Set<UUID> VIEWING_PLAYERS = new HashSet<>();
-    public static final Set<ChunkPos> ACTIVE_CHUNKS = Collections.synchronizedSet(new HashSet<>());
-
-    private static final int REGION_RADIUS = 6;
+    private static final int REGION_RADIUS = 10; // 21x21 regions = 672x672 chunks (~10.750x10.750 blokken)
     private static int tickCounter = 0;
 
     @SubscribeEvent
     public static void onRegisterCommands(RegisterCommandsEvent event) {
-        event.getDispatcher().register(
-                Commands.literal("pregenradar")
-                        .requires(source -> source.hasPermission(2))
-                        .executes(ctx -> {
-                            ServerPlayer player = ctx.getSource().getPlayerOrException();
-                            startWatching(player);
-                            return 1;
-                        })
-        );
+        CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
+        dispatcher.register(Commands.literal("pregenradar")
+                .executes(ctx -> {
+                    ServerPlayer player = ctx.getSource().getPlayerOrException();
+                    startWatching(player);
+                    return 1;
+                }));
     }
 
     public static void startWatching(ServerPlayer player) {
@@ -75,17 +77,19 @@ public class RadarTracker {
 
     private static void sendRadarUpdateAsync(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
-        Path regionDir = level.getServer().getWorldPath(LevelResource.ROOT)
-                .resolve(level.dimension().location().getPath().equals("overworld") ? "region" :
-                        "DIM" + (level.dimension() == ServerLevel.NETHER ? "-1" : "1") + "/region");
+        ResourceLocation dimId = level.dimension().location();
+        Path regionDir = DimensionType.getStorageFolder(level.dimension(), level.getServer().getWorldPath(LevelResource.ROOT)).resolve("region");
 
-        Set<ChunkPos> activeSnapshot = new HashSet<>(ACTIVE_CHUNKS);
-        Set<ChunkPos> memoryExistingSnapshot = new HashSet<>(PreGenerationManager.KNOWN_EXISTING);
+        Set<ChunkPos> activeSnapshot = PreGenerationManager.getVisibleActiveChunks();
+        Set<Long> knownSnapshot = new HashSet<>(PreGenerationManager.getKnownExisting(dimId));
+        DimensionPreGenConfig dimCfg = PreGenerationManager.getDimensionConfig(dimId);
+        List<DimensionPreGenConfig.PriorityZone> zonesSnapshot = dimCfg != null ? List.copyOf(dimCfg.zones) : List.of();
+        int trailRadius = ServerConfig.INSTANCE.playerTrailingRadiusBlocks.get();
+        PreGenerationManager.DebugStats stats = PreGenerationManager.getDebugStats(dimId);
 
         CompletableFuture.runAsync(() -> {
             int gridRegions = REGION_RADIUS * 2 + 1;
             int gridChunks = gridRegions * 32;
-            int zeroOffset = REGION_RADIUS * 32;
             BitSet existing = new BitSet(gridChunks * gridChunks);
             BitSet active = new BitSet(gridChunks * gridChunks);
 
@@ -113,25 +117,34 @@ public class RadarTracker {
                 }
             }
 
-            for (ChunkPos pos : memoryExistingSnapshot) {
-                int gx = pos.x + zeroOffset;
-                int gz = pos.z + zeroOffset;
-                if (gx >= 0 && gx < gridChunks && gz >= 0 && gz < gridChunks) {
-                    existing.set(gz * gridChunks + gx);
+            for (Long packed : knownSnapshot) {
+                int cx = ChunkPos.getX(packed);
+                int cz = ChunkPos.getZ(packed);
+                int globalX = cx + (REGION_RADIUS * 32);
+                int globalZ = cz + (REGION_RADIUS * 32);
+                if (globalX >= 0 && globalX < gridChunks && globalZ >= 0 && globalZ < gridChunks) {
+                    existing.set(globalZ * gridChunks + globalX);
                 }
             }
 
             for (ChunkPos pos : activeSnapshot) {
-                int gx = pos.x + zeroOffset;
-                int gz = pos.z + zeroOffset;
-                if (gx >= 0 && gx < gridChunks && gz >= 0 && gz < gridChunks) {
-                    active.set(gz * gridChunks + gx);
+                int globalX = pos.x + (REGION_RADIUS * 32);
+                int globalZ = pos.z + (REGION_RADIUS * 32);
+                if (globalX >= 0 && globalX < gridChunks && globalZ >= 0 && globalZ < gridChunks) {
+                    active.set(globalZ * gridChunks + globalX);
                 }
             }
 
             level.getServer().execute(() -> {
                 if (VIEWING_PLAYERS.contains(player.getUUID())) {
-                    PacketHandler.sendToPlayer(new SyncChunkRadarPacket(REGION_RADIUS, existing, active), player);
+                    PacketHandler.sendToPlayer(
+                            new SyncChunkRadarPacket(
+                                    REGION_RADIUS, existing, active, zonesSnapshot, trailRadius,
+                                    stats.status(), stats.avgChunkTimeMs(), stats.chunksPerSec(),
+                                    stats.completedInZones(), stats.totalInZones()
+                            ),
+                            player
+                    );
                 }
             });
         });

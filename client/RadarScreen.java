@@ -1,5 +1,6 @@
 package com.gmail.rawlxxxviii.raws_auto_pre_generation.client;
 
+import com.gmail.rawlxxxviii.raws_auto_pre_generation.config.DimensionPreGenConfig;
 import com.gmail.rawlxxxviii.raws_auto_pre_generation.network.PacketHandler;
 import com.gmail.rawlxxxviii.raws_auto_pre_generation.network.StopWatchingRadarPacket;
 import com.mojang.blaze3d.platform.NativeImage;
@@ -16,90 +17,58 @@ import java.util.BitSet;
 import java.util.List;
 
 public class RadarScreen extends Screen {
-    public record PriorityZone(int centerX, int centerZ, int radiusBlocks, double maxPrio) {}
-
     private int regionRadius;
     private BitSet existingChunks;
     private BitSet activeChunks;
+    private List<DimensionPreGenConfig.PriorityZone> priorityZones;
+    private int playerTrailRadiusBlocks;
+
+    private String status;
+    private double avgChunkTimeMs;
+    private double chunksPerSec;
+    private int completedInZones;
+    private int totalInZones;
 
     private int panOffsetX = 0;
     private int panOffsetZ = 0;
 
     private DynamicTexture dynamicTexture;
     private ResourceLocation textureLocation;
-    private int currentTextureSize = -1;
+    private int lastTexSize = -1;
     private boolean dirty = true;
 
-    private final List<PriorityZone> priorityZones = List.of(
-            new PriorityZone(0, 0, 1500, 0.50)
-    );
-
-    private static final int PLAYER_TRAIL_RADIUS_BLOCKS = 1000;
-
-    public RadarScreen(int regionRadius, BitSet existingChunks, BitSet activeChunks) {
+    public RadarScreen(int regionRadius, BitSet existingChunks, BitSet activeChunks,
+                       List<DimensionPreGenConfig.PriorityZone> priorityZones, int playerTrailRadiusBlocks,
+                       String status, double avgChunkTimeMs, double chunksPerSec,
+                       int completedInZones, int totalInZones) {
         super(Component.literal("Chunk Pre-Generation Radar"));
         this.regionRadius = regionRadius;
         this.existingChunks = existingChunks;
         this.activeChunks = activeChunks;
+        this.priorityZones = priorityZones != null ? priorityZones : List.of();
+        this.playerTrailRadiusBlocks = playerTrailRadiusBlocks;
+        this.status = status;
+        this.avgChunkTimeMs = avgChunkTimeMs;
+        this.chunksPerSec = chunksPerSec;
+        this.completedInZones = completedInZones;
+        this.totalInZones = totalInZones;
     }
 
-    public void updateRadarData(int regionRadius, BitSet existingChunks, BitSet activeChunks) {
+    public void updateRadarData(int regionRadius, BitSet existingChunks, BitSet activeChunks,
+                                List<DimensionPreGenConfig.PriorityZone> priorityZones, int playerTrailRadiusBlocks,
+                                String status, double avgChunkTimeMs, double chunksPerSec,
+                                int completedInZones, int totalInZones) {
         this.regionRadius = regionRadius;
         this.existingChunks = existingChunks;
         this.activeChunks = activeChunks;
+        this.priorityZones = priorityZones != null ? priorityZones : List.of();
+        this.playerTrailRadiusBlocks = playerTrailRadiusBlocks;
+        this.status = status;
+        this.avgChunkTimeMs = avgChunkTimeMs;
+        this.chunksPerSec = chunksPerSec;
+        this.completedInZones = completedInZones;
+        this.totalInZones = totalInZones;
         this.dirty = true;
-    }
-
-    private void rebuildTextureIfNeeded(int viewSize, int gridChunks, int baseChunkOffset, int zeroChunkIndex) {
-        if (dynamicTexture == null || currentTextureSize != viewSize) {
-            if (dynamicTexture != null) {
-                dynamicTexture.close();
-            }
-            dynamicTexture = new DynamicTexture(viewSize, viewSize, false);
-            textureLocation = Minecraft.getInstance().getTextureManager().register("raws_pregen_radar", dynamicTexture);
-            currentTextureSize = viewSize;
-            dirty = true;
-        }
-
-        if (!dirty) return;
-
-        NativeImage pixels = dynamicTexture.getPixels();
-        if (pixels == null) return;
-
-        for (int vy = 0; vy < viewSize; vy++) {
-            int gz = baseChunkOffset + panOffsetZ + vy;
-            int worldChunkZ = gz - zeroChunkIndex;
-            int blockCenterZ = (worldChunkZ << 4) + 8;
-
-            for (int vx = 0; vx < viewSize; vx++) {
-                int gx = baseChunkOffset + panOffsetX + vx;
-                int abgr = 0xFF000000; // Zwart (ABGR formaat voor NativeImage!)
-
-                if (gx >= 0 && gx < gridChunks && gz >= 0 && gz < gridChunks) {
-                    int idx = gz * gridChunks + gx;
-                    int worldChunkX = gx - zeroChunkIndex;
-                    int blockCenterX = (worldChunkX << 4) + 8;
-
-                    if (activeChunks.get(idx)) {
-                        abgr = 0xFFFFD800; // Lichtblauw (#00D8FF in ABGR)
-                    } else if (existingChunks.get(idx)) {
-                        abgr = 0xFF777777; // Grijs (#777777)
-                    } else {
-                        double prio = getHighestZonePriority(blockCenterX, blockCenterZ);
-                        if (prio > 0.0) {
-                            double normalizedAlpha = 0.20 + (prio * 0.65);
-                            int alpha = Math.max(51, Math.min(230, (int) Math.round(normalizedAlpha * 255.0)));
-                            // Oranje #FF8C00 -> R=0xFF, G=0x8C, B=0x00 -> ABGR = (alpha << 24) | 0x008CFF
-                            abgr = (alpha << 24) | 0x008CFF;
-                        }
-                    }
-                }
-                pixels.setPixelRGBA(vx, vy, abgr);
-            }
-        }
-
-        dynamicTexture.upload();
-        dirty = false;
     }
 
     @Override
@@ -118,20 +87,24 @@ public class RadarScreen extends Screen {
         int baseChunkOffset = (gridChunks - viewSize) / 2;
         int zeroChunkIndex = regionRadius * 32;
 
-        rebuildTextureIfNeeded(viewSize, gridChunks, baseChunkOffset, zeroChunkIndex);
+        if (dirty || dynamicTexture == null || lastTexSize != viewSize) {
+            rebuildTexture(viewSize, gridChunks, baseChunkOffset, zeroChunkIndex);
+            dirty = false;
+        }
 
         graphics.fill(startX - 2, startY - 2, startX + viewSize + 2, startY + viewSize + 2, 0xFF333333);
         if (textureLocation != null) {
             graphics.blit(textureLocation, startX, startY, 0, 0, viewSize, viewSize, viewSize, viewSize);
         }
 
+        // Speler-positie & trail cirkel
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) {
             ChunkPos playerChunk = mc.player.chunkPosition();
             int playerVx = (playerChunk.x + zeroChunkIndex) - (baseChunkOffset + panOffsetX);
             int playerVy = (playerChunk.z + zeroChunkIndex) - (baseChunkOffset + panOffsetZ);
 
-            int trailRadiusChunks = PLAYER_TRAIL_RADIUS_BLOCKS / 16;
+            int trailRadiusChunks = playerTrailRadiusBlocks / 16;
             drawCircleOutline(graphics, startX + playerVx, startY + playerVy, trailRadiusChunks, startX, startY, viewSize, 0xAA22C55E);
 
             if (playerVx >= 0 && playerVx < viewSize && playerVy >= 0 && playerVy < viewSize) {
@@ -139,6 +112,7 @@ public class RadarScreen extends Screen {
             }
         }
 
+        // Rood kruisje op (0,0)
         int zeroVx = zeroChunkIndex - (baseChunkOffset + panOffsetX);
         int zeroVy = zeroChunkIndex - (baseChunkOffset + panOffsetZ);
         if (zeroVx >= 1 && zeroVx < viewSize - 1 && zeroVy >= 1 && zeroVy < viewSize - 1) {
@@ -148,15 +122,43 @@ public class RadarScreen extends Screen {
 
         graphics.drawCenteredString(this.font, this.title, this.width / 2, startY - 14, 0xFFFFFF);
 
+        // Links paneel: Live Debug Statistieken
+        int debugX = 10;
+        int debugY = startY + 4;
+        if (startX > 135) {
+            graphics.drawString(this.font, "§lGenerator Debug", debugX, debugY, 0xFFFFFF);
+            graphics.drawString(this.font, "Status: §b" + status, debugX, debugY + 14, 0xCCCCCC);
+            graphics.drawString(this.font, String.format("Tijd/chunk: §e%.1f ms", avgChunkTimeMs), debugX, debugY + 28, 0xCCCCCC);
+            graphics.drawString(this.font, String.format("Snelheid: §a%.1f ch/s", chunksPerSec), debugX, debugY + 42, 0xCCCCCC);
+
+            if (totalInZones > 0) {
+                double pct = (completedInZones * 100.0) / totalInZones;
+                graphics.drawString(this.font, String.format("Zones: §f%d / %d", completedInZones, totalInZones), debugX, debugY + 58, 0xCCCCCC);
+                graphics.drawString(this.font, String.format("Voortgang: §6%.1f%%", pct), debugX, debugY + 72, 0xCCCCCC);
+
+                int remaining = Math.max(0, totalInZones - completedInZones);
+                if (remaining == 0) {
+                    graphics.drawString(this.font, "ETA: §aVoltooid!", debugX, debugY + 86, 0xCCCCCC);
+                } else if (chunksPerSec > 0.05) {
+                    long etaSec = (long) (remaining / chunksPerSec);
+                    graphics.drawString(this.font, "ETA: §f" + formatDuration(etaSec), debugX, debugY + 86, 0xCCCCCC);
+                } else {
+                    graphics.drawString(this.font, "ETA: §7--", debugX, debugY + 86, 0xCCCCCC);
+                }
+            }
+        }
+
+        // Rechts paneel: Legenda
         int legendX = startX + viewSize + 10;
         int legendY = startY + 4;
-        if (legendX + 100 < this.width) {
+        if (legendX + 90 < this.width) {
             drawLegendItem(graphics, legendX, legendY, 0xFF777777, "Op schijf");
             drawLegendItem(graphics, legendX, legendY + 14, 0xFF00D8FF, "Actief");
             drawLegendItem(graphics, legendX, legendY + 28, 0x99FF8C00, "Prio zone");
             drawLegendItem(graphics, legendX, legendY + 42, 0xFF22C55E, "Jij");
         }
 
+        // Onderbalk: Hover-coördinaten of bediening
         if (mouseX >= startX && mouseX < startX + viewSize && mouseY >= startY && mouseY < startY + viewSize) {
             int vx = mouseX - startX;
             int vy = mouseY - startY;
@@ -164,14 +166,12 @@ public class RadarScreen extends Screen {
             int chunkZ = (baseChunkOffset + panOffsetZ + vy) - zeroChunkIndex;
             int minBlockX = chunkX << 4;
             int minBlockZ = chunkZ << 4;
-            int maxBlockX = minBlockX + 15;
-            int maxBlockZ = minBlockZ + 15;
 
             double hoveredPrio = getHighestZonePriority(minBlockX + 8, minBlockZ + 8);
             String prioText = hoveredPrio > 0 ? String.format("  |  Prio: %.0f%%", hoveredPrio * 100.0) : "";
 
             String hoverText = String.format("Chunk: [%d, %d]  |  Blokken: [%d, %d] t/m [%d, %d]%s",
-                    chunkX, chunkZ, minBlockX, minBlockZ, maxBlockX, maxBlockZ, prioText);
+                    chunkX, chunkZ, minBlockX, minBlockZ, minBlockX + 15, minBlockZ + 15, prioText);
             graphics.drawCenteredString(this.font, hoverText, this.width / 2, startY + viewSize + 8, 0xE2E8F0);
         } else {
             graphics.drawCenteredString(this.font, "Pijltjestoetsen: pannen (Shift = snel)  |  R: reset", this.width / 2, startY + viewSize + 8, 0x94A3B8);
@@ -180,16 +180,91 @@ public class RadarScreen extends Screen {
         super.render(graphics, mouseX, mouseY, partialTick);
     }
 
+    private String formatDuration(long totalSeconds) {
+        long hours = totalSeconds / 3600;
+        long minutes = (totalSeconds % 3600) / 60;
+        long seconds = totalSeconds % 60;
+        if (hours > 0) {
+            return String.format("%du %02dm", hours, minutes);
+        } else if (minutes > 0) {
+            return String.format("%dm %02ds", minutes, seconds);
+        } else {
+            return String.format("%ds", seconds);
+        }
+    }
+
+    private void rebuildTexture(int viewSize, int gridChunks, int baseChunkOffset, int zeroChunkIndex) {
+        if (dynamicTexture == null || lastTexSize != viewSize) {
+            if (dynamicTexture != null) {
+                dynamicTexture.close();
+            }
+            dynamicTexture = new DynamicTexture(viewSize, viewSize, false);
+            textureLocation = Minecraft.getInstance().getTextureManager().register("raws_pregen_radar", dynamicTexture);
+            lastTexSize = viewSize;
+        }
+
+        NativeImage pixels = dynamicTexture.getPixels();
+        if (pixels == null) return;
+
+        double highestZoneMax = 0.0;
+        for (DimensionPreGenConfig.PriorityZone z : priorityZones) {
+            if (z.maxPrio() > highestZoneMax) highestZoneMax = z.maxPrio();
+        }
+        if (highestZoneMax <= 0.0) highestZoneMax = 1.0;
+
+        final int colBlack = 0xFF000000;
+        final int colGray  = 0xFF777777;
+        final int colBlue  = 0xFFFFD800;
+
+        for (int vy = 0; vy < viewSize; vy++) {
+            int gz = baseChunkOffset + panOffsetZ + vy;
+            int worldChunkZ = gz - zeroChunkIndex;
+            int blockCenterZ = (worldChunkZ << 4) + 8;
+
+            for (int vx = 0; vx < viewSize; vx++) {
+                int gx = baseChunkOffset + panOffsetX + vx;
+                if (gx < 0 || gx >= gridChunks || gz < 0 || gz >= gridChunks) {
+                    pixels.setPixelRGBA(vx, vy, colBlack);
+                    continue;
+                }
+
+                int idx = gz * gridChunks + gx;
+                if (activeChunks.get(idx)) {
+                    pixels.setPixelRGBA(vx, vy, colBlue);
+                } else if (existingChunks.get(idx)) {
+                    pixels.setPixelRGBA(vx, vy, colGray);
+                } else {
+                    int worldChunkX = gx - zeroChunkIndex;
+                    int blockCenterX = (worldChunkX << 4) + 8;
+                    double prio = getHighestZonePriority(blockCenterX, blockCenterZ);
+                    if (prio > 0.0) {
+                        double relative = Math.min(1.0, prio / highestZoneMax);
+                        double intensity = 0.20 + (relative * 0.80);
+                        int r = (int) Math.round(255 * intensity);
+                        int g = (int) Math.round(140 * intensity);
+                        int b = 0;
+                        int abgr = (0xFF << 24) | (b << 16) | (g << 8) | r;
+                        pixels.setPixelRGBA(vx, vy, abgr);
+                    } else {
+                        pixels.setPixelRGBA(vx, vy, colBlack);
+                    }
+                }
+            }
+        }
+
+        dynamicTexture.upload();
+    }
+
     private double getHighestZonePriority(int blockX, int blockZ) {
         double best = 0.0;
-        for (PriorityZone zone : priorityZones) {
-            if (zone.radiusBlocks <= 0 || zone.maxPrio <= 0.0) continue;
-            double dx = blockX - zone.centerX;
-            double dz = blockZ - zone.centerZ;
+        for (DimensionPreGenConfig.PriorityZone zone : priorityZones) {
+            if (zone.radiusBlocks() <= 0 || zone.maxPrio() <= 0.0) continue;
+            double dx = blockX - zone.centerX();
+            double dz = blockZ - zone.centerZ();
             double dist = Math.sqrt(dx * dx + dz * dz);
-            if (dist <= zone.radiusBlocks) {
-                double factor = 1.0 - (dist / zone.radiusBlocks);
-                double prio = zone.maxPrio * factor;
+            if (dist <= zone.radiusBlocks()) {
+                double factor = 1.0 - (dist / zone.radiusBlocks());
+                double prio = zone.maxPrio() * factor;
                 if (prio > best) {
                     best = prio;
                 }
@@ -252,11 +327,11 @@ public class RadarScreen extends Screen {
 
     @Override
     public void onClose() {
+        PacketHandler.sendToServer(new StopWatchingRadarPacket());
         if (dynamicTexture != null) {
             dynamicTexture.close();
             dynamicTexture = null;
         }
-        PacketHandler.sendToServer(new StopWatchingRadarPacket());
         super.onClose();
     }
 
