@@ -1,6 +1,6 @@
-package com.gmail.rawlxxxviii.raws_auto_pre_generation.network;
+package com.gmail.rawlxxxviii.raws_chunk_generation.network;
 
-import com.gmail.rawlxxxviii.raws_auto_pre_generation.RawsAutoPreGeneration;
+import com.gmail.rawlxxxviii.raws_chunk_generation.RawsChunkGenerationMod;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkDirection;
@@ -16,8 +16,8 @@ public class PacketHandler {
         return packetId++;
     }
 
-    private static final SimpleChannel INSTANCE = NetworkRegistry.ChannelBuilder.named(
-            new ResourceLocation(RawsAutoPreGeneration.MODID, "main"))
+    public static final SimpleChannel INSTANCE = NetworkRegistry.ChannelBuilder.named(
+            new ResourceLocation(RawsChunkGenerationMod.MODID, "main"))
             .serverAcceptedVersions((version) -> true)
             .clientAcceptedVersions((version) -> true)
             .networkProtocolVersion(() -> "1")
@@ -54,4 +54,6 @@ public class PacketHandler {
     public static <T> void sendToClients(T msg) {
         INSTANCE.send(PacketDistributor.ALL.noArg(), msg);
     }
+
+
 }

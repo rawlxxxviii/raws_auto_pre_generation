@@ -1,7 +1,6 @@
-package com.gmail.rawlxxxviii.raws_auto_pre_generation.network;
+package com.gmail.rawlxxxviii.raws_chunk_generation.network;
 
-import com.gmail.rawlxxxviii.raws_auto_pre_generation.client.ClientPacketHandler;
-import com.gmail.rawlxxxviii.raws_auto_pre_generation.config.DimensionPreGenConfig;
+import com.gmail.rawlxxxviii.raws_chunk_generation.client.ClientPacketHandler;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
@@ -13,16 +12,14 @@ import java.util.List;
 import java.util.function.Supplier;
 
 public class SyncChunkRadarPacket {
-    private final int regionRadius;
     private final BitSet existingChunks;
     private final BitSet activeChunks;
-    private final List<DimensionPreGenConfig.PriorityZone> zones;
-    private final int playerTrailRadiusBlocks;
 
     private final String status;
+
     private final double avgChunkTimeMs;
     private final double chunksPerSec;
-    private final int completedInZones;
+
     private final int totalInZones;
 
     public SyncChunkRadarPacket(int regionRadius, BitSet existingChunks, BitSet activeChunks,

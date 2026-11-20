@@ -1,6 +1,6 @@
-package com.gmail.rawlxxxviii.raws_auto_pre_generation.client;
+package com.gmail.rawlxxxviii.raws_chunk_generation.client;
 
-import com.gmail.rawlxxxviii.raws_auto_pre_generation.network.SyncChunkRadarPacket;
+import com.gmail.rawlxxxviii.raws_chunk_generation.network.SyncChunkRadarPacket;
 import net.minecraft.client.Minecraft;
 
 public class ClientPacketHandler {

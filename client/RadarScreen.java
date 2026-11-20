@@ -1,8 +1,7 @@
-package com.gmail.rawlxxxviii.raws_auto_pre_generation.client;
+package com.gmail.rawlxxxviii.raws_chunk_generation.client;
 
-import com.gmail.rawlxxxviii.raws_auto_pre_generation.config.DimensionPreGenConfig;
-import com.gmail.rawlxxxviii.raws_auto_pre_generation.network.PacketHandler;
-import com.gmail.rawlxxxviii.raws_auto_pre_generation.network.StopWatchingRadarPacket;
+import com.gmail.rawlxxxviii.raws_chunk_generation.network.PacketHandler;
+import com.gmail.rawlxxxviii.raws_chunk_generation.network.StopWatchingRadarPacket;
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -17,10 +16,8 @@ import java.util.BitSet;
 import java.util.List;
 
 public class RadarScreen extends Screen {
-    private int regionRadius;
     private BitSet existingChunks;
     private BitSet activeChunks;
-    private List<DimensionPreGenConfig.PriorityZone> priorityZones;
     private int playerTrailRadiusBlocks;
 
     private String status;

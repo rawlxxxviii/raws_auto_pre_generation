@@ -1,9 +1,8 @@
-package com.gmail.rawlxxxviii.raws_auto_pre_generation.server;
+package com.gmail.rawlxxxviii.raws_chunk_generation.server;
 
-import com.gmail.rawlxxxviii.raws_auto_pre_generation.config.DimensionPreGenConfig;
-import com.gmail.rawlxxxviii.raws_auto_pre_generation.config.ServerConfig;
-import com.gmail.rawlxxxviii.raws_auto_pre_generation.network.PacketHandler;
-import com.gmail.rawlxxxviii.raws_auto_pre_generation.network.SyncChunkRadarPacket;
+import com.gmail.rawlxxxviii.raws_chunk_generation.config.ServerConfig;
+import com.gmail.rawlxxxviii.raws_chunk_generation.network.PacketHandler;
+import com.gmail.rawlxxxviii.raws_chunk_generation.network.SyncChunkRadarPacket;
 import com.mojang.brigadier.CommandDispatcher;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;

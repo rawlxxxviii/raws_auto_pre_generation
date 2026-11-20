@@ -1,7 +1,6 @@
-package com.gmail.rawlxxxviii.raws_auto_pre_generation.server;
+package com.gmail.rawlxxxviii.raws_chunk_generation.server;
 
-import com.gmail.rawlxxxviii.raws_auto_pre_generation.config.DimensionPreGenConfig;
-import com.gmail.rawlxxxviii.raws_auto_pre_generation.config.ServerConfig;
+import com.gmail.rawlxxxviii.raws_chunk_generation.config.ServerConfig;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.*;

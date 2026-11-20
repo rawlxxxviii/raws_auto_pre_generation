@@ -1,8 +1,8 @@
-package com.gmail.rawlxxxviii.raws_auto_pre_generation.client;
+package com.gmail.rawlxxxviii.raws_chunk_generation.client;
 
-import com.gmail.rawlxxxviii.raws_auto_pre_generation.RawsAutoPreGeneration;
-import com.gmail.rawlxxxviii.raws_auto_pre_generation.network.OpenRadarPacket;
-import com.gmail.rawlxxxviii.raws_auto_pre_generation.network.PacketHandler;
+import com.gmail.rawlxxxviii.raws_chunk_generation.RawsChunkGenerationMod;
+import com.gmail.rawlxxxviii.raws_chunk_generation.network.OpenRadarPacket;
+import com.gmail.rawlxxxviii.raws_chunk_generation.network.PacketHandler;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -17,14 +17,14 @@ import org.lwjgl.glfw.GLFW;
 public class ClientKeybinds {
 
     public static final KeyMapping OPEN_RADAR_KEY = new KeyMapping(
-            "key.raws_auto_pre_generation.open_radar",
+            "key.raws_chunk_generation.open_radar",
             KeyConflictContext.IN_GAME,
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_BACKSPACE,
-            "key.categories.raws_auto_pre_generation"
+            "key.categories.raws_chunk_generation"
     );
 
-    @Mod.EventBusSubscriber(modid = RawsAutoPreGeneration.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+    @Mod.EventBusSubscriber(modid = RawsChunkGenerationMod.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
     public static class ModBusEvents {
         @SubscribeEvent
         public static void registerKeys(RegisterKeyMappingsEvent event) {
@@ -32,7 +32,7 @@ public class ClientKeybinds {
         }
     }
 
-    @Mod.EventBusSubscriber(modid = RawsAutoPreGeneration.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
+    @Mod.EventBusSubscriber(modid = RawsChunkGenerationMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
     public static class ForgeBusEvents {
         @SubscribeEvent
         public static void onKeyInput(InputEvent.Key event) {

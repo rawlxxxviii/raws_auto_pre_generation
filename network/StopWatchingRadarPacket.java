@@ -1,6 +1,6 @@
-package com.gmail.rawlxxxviii.raws_auto_pre_generation.network;
+package com.gmail.rawlxxxviii.raws_chunk_generation.network;
 
-import com.gmail.rawlxxxviii.raws_auto_pre_generation.server.RadarTracker;
+import com.gmail.rawlxxxviii.raws_chunk_generation.server.RadarTracker;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
