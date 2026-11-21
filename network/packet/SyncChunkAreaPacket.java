@@ -14,6 +14,7 @@ import java.util.function.Supplier;
 public class SyncChunkAreaPacket {
 
     public final ResourceKey<Level> dimension;
+    public final boolean dimensionExists;
     public final int startChunkX;
     public final int startChunkZ;
     public final int width;
@@ -21,8 +22,9 @@ public class SyncChunkAreaPacket {
     public final byte[] packedStates;
     public final String debugInfo;
 
-    public SyncChunkAreaPacket(ResourceKey<Level> dimension, int startChunkX, int startChunkZ, int width, int height, byte[] packedStates, String debugInfo) {
+    public SyncChunkAreaPacket(ResourceKey<Level> dimension, boolean dimensionExists, int startChunkX, int startChunkZ, int width, int height, byte[] packedStates, String debugInfo) {
         this.dimension = dimension;
+        this.dimensionExists = dimensionExists;
         this.startChunkX = startChunkX;
         this.startChunkZ = startChunkZ;
         this.width = width;
@@ -33,6 +35,7 @@ public class SyncChunkAreaPacket {
 
     public static void encode(SyncChunkAreaPacket msg, FriendlyByteBuf buf) {
         buf.writeResourceKey(msg.dimension);
+        buf.writeBoolean(msg.dimensionExists);
         buf.writeInt(msg.startChunkX);
         buf.writeInt(msg.startChunkZ);
         buf.writeInt(msg.width);
@@ -44,6 +47,7 @@ public class SyncChunkAreaPacket {
     public static SyncChunkAreaPacket decode(FriendlyByteBuf buf) {
         return new SyncChunkAreaPacket(
             buf.readResourceKey(Registries.DIMENSION),
+            buf.readBoolean(),
             buf.readInt(),
             buf.readInt(),
             buf.readInt(),

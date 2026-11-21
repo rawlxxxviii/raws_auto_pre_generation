@@ -53,33 +53,31 @@ public class RequestChunkAreaPacket {
             ServerPlayer sender = ctx.getSender();
             if (sender == null) return;
 
-            // 1. Server-side rechten-check (veiligheid tegen aangepaste clients)
             if (ServerConfig.INSTANCE.LIMIT_INFO_SCREEN_TO_OPERATORS.get() && !sender.hasPermissions(2)) {
                 return;
             }
 
-            // 2. Veiligheids-cap op grootte (voorkomt dat een client per ongeluk 10.000x10.000 opvraagt)
+            if (!ServerConfig.isDimensionEnabled(msg.dimension)) {
+                return;
+            }
+
             int safeWidth = Math.min(Math.max(msg.width, 1), 512);
             int safeHeight = Math.min(Math.max(msg.height, 1), 512);
 
             ServerLevel targetLevel = sender.getServer().getLevel(msg.dimension);
-            if (targetLevel == null) return;
-
-            // 3. Haal de ingepakte 2-bit data op uit onze tracker
-            byte[] packedStates = ChunkStateTracker.getAreaStates(
-                targetLevel, msg.startChunkX, msg.startChunkZ, safeWidth, safeHeight
-            );
-
-            // 4. Bouw alvast een korte debug-status voor onderin het scherm
             int generatedCount = ChunkStateTracker.getGeneratedCount(msg.dimension);
-            String debugInfo = String.format(
-                "Dim: %s | Generated chunks: %d",
-                msg.dimension.location(), generatedCount
-            );
+            boolean exists = targetLevel != null && generatedCount > 0;
 
-            // 5. Stuur het antwoord terug naar deze specifieke speler
+            byte[] packedStates = exists
+                ? ChunkStateTracker.getAreaStates(targetLevel, msg.startChunkX, msg.startChunkZ, safeWidth, safeHeight)
+                : new byte[0];
+
+            String debugInfo = exists
+                ? String.format("Dim: %s | Generated chunks: %d", msg.dimension.location(), generatedCount)
+                : String.format("Dim: %s | Unexisting (0 chunks)", msg.dimension.location());
+
             PacketHandler.sendToPlayer(
-                new SyncChunkAreaPacket(msg.dimension, msg.startChunkX, msg.startChunkZ, safeWidth, safeHeight, packedStates, debugInfo),
+                new SyncChunkAreaPacket(msg.dimension, exists, msg.startChunkX, msg.startChunkZ, safeWidth, safeHeight, packedStates, debugInfo),
                 sender
             );
         });

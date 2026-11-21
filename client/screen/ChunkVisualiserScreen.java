@@ -2,21 +2,30 @@ package com.gmail.rawlxxxviii.raws_chunk_generation.client.screen;
 
 import com.gmail.rawlxxxviii.raws_chunk_generation.client.ClientKeybinds;
 import com.gmail.rawlxxxviii.raws_chunk_generation.client.render.ChunkMapRenderer;
+import com.gmail.rawlxxxviii.raws_chunk_generation.config.ServerConfig;
 import com.gmail.rawlxxxviii.raws_chunk_generation.network.PacketHandler;
 import com.gmail.rawlxxxviii.raws_chunk_generation.network.packet.RequestChunkAreaPacket;
 import com.gmail.rawlxxxviii.raws_chunk_generation.network.packet.SyncChunkAreaPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.level.ChunkPos;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
+import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
+
+import java.util.Comparator;
+import java.util.List;
 
 public class ChunkVisualiserScreen extends Screen {
 
     private static final int VIEW_CHUNKS = 512;
     private static final int POLL_INTERVAL_TICKS = 5;
 
+    private @Nullable ResourceKey<Level> selectedDimension = null;
     private int panOffsetX = 0;
     private int panOffsetZ = 0;
     private int tickCounter = 0;
@@ -28,7 +37,65 @@ public class ChunkVisualiserScreen extends Screen {
     @Override
     protected void init() {
         super.init();
+
+        List<ResourceKey<Level>> enabledDims = getEnabledDimensions();
+        Minecraft mc = Minecraft.getInstance();
+
+        if (selectedDimension == null && mc.level != null) {
+            ResourceKey<Level> currentDim = mc.level.dimension();
+            if (ServerConfig.isDimensionEnabled(currentDim)) {
+                this.selectedDimension = currentDim;
+            } else {
+                this.selectedDimension = enabledDims.isEmpty() ? currentDim : enabledDims.get(0);
+            }
+        }
+
+        // Bereken de kaartpositie zodat de knop netjes rechts bovenaan naast de kaart staat
+        int mapSizePx = getMapSizePx();
+        int minX = (this.width - mapSizePx) / 2;
+        int minY = (this.height - mapSizePx) / 2 - 8;
+
+        int btnWidth = 96;
+        int btnHeight = 20;
+        int btnX = Math.min(minX + mapSizePx + 8, this.width - btnWidth - 8);
+
+        Button nextDimButton = Button.builder(
+                Component.translatable("button.raws_chunk_generation.next_dimension"),
+                btn -> cycleNextDimension()
+            )
+            .bounds(btnX, minY, btnWidth, btnHeight)
+            .build();
+
+        nextDimButton.active = enabledDims.size() > 1;
+        this.addRenderableWidget(nextDimButton);
+
         requestAreaUpdate();
+    }
+
+    private void cycleNextDimension() {
+        List<ResourceKey<Level>> enabledDims = getEnabledDimensions();
+        if (enabledDims.size() <= 1 || selectedDimension == null) return;
+
+        int idx = enabledDims.indexOf(selectedDimension);
+        int nextIdx = Math.floorMod(idx + 1, enabledDims.size());
+        selectedDimension = enabledDims.get(nextIdx);
+        panOffsetX = 0;
+        panOffsetZ = 0;
+        requestAreaUpdate();
+    }
+
+    private List<ResourceKey<Level>> getEnabledDimensions() {
+        ClientPacketListener connection = Minecraft.getInstance().getConnection();
+        if (connection == null) return List.of();
+
+        return connection.levels().stream()
+            .filter(ServerConfig::isDimensionEnabled)
+            .sorted(Comparator.comparing(k -> k.location().toString()))
+            .toList();
+    }
+
+    private int getMapSizePx() {
+        return Math.min(VIEW_CHUNKS, Math.min(this.width - 40, this.height - 60));
     }
 
     @Override
@@ -41,15 +108,17 @@ public class ChunkVisualiserScreen extends Screen {
 
     private void requestAreaUpdate() {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.level == null) return;
+        if (mc.player == null || mc.level == null || selectedDimension == null) return;
 
-        ChunkPos playerChunk = mc.player.chunkPosition();
+        boolean isCurrentPlayerDim = mc.level.dimension().equals(selectedDimension);
+        int baseX = isCurrentPlayerDim ? mc.player.chunkPosition().x : 0;
+        int baseZ = isCurrentPlayerDim ? mc.player.chunkPosition().z : 0;
         int halfView = VIEW_CHUNKS / 2;
 
         PacketHandler.sendToServer(new RequestChunkAreaPacket(
-            mc.level.dimension(),
-            playerChunk.x + panOffsetX - halfView,
-            playerChunk.z + panOffsetZ - halfView,
+            selectedDimension,
+            baseX + panOffsetX - halfView,
+            baseZ + panOffsetZ - halfView,
             VIEW_CHUNKS,
             VIEW_CHUNKS
         ));
@@ -59,16 +128,30 @@ public class ChunkVisualiserScreen extends Screen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics);
 
-        int mapSizePx = Math.min(VIEW_CHUNKS, Math.min(this.width - 40, this.height - 60));
+        int mapSizePx = getMapSizePx();
         int minX = (this.width - mapSizePx) / 2;
         int minY = (this.height - mapSizePx) / 2 - 8;
 
-        ChunkMapRenderer.renderMap(graphics, minX, minY, mapSizePx);
-
         SyncChunkAreaPacket data = ChunkMapRenderer.getLatestPacket();
-        if (data != null) {
+
+        if (data != null && data.dimension.equals(selectedDimension)) {
+            if (data.dimensionExists) {
+                ChunkMapRenderer.renderMap(graphics, minX, minY, mapSizePx);
+            } else {
+                graphics.fill(minX - 1, minY - 1, minX + mapSizePx + 1, minY + mapSizePx + 1, 0xFF888888);
+                graphics.fill(minX, minY, minX + mapSizePx, minY + mapSizePx, 0xFF000000);
+                graphics.drawCenteredString(
+                    this.font,
+                    Component.translatable("screen.raws_chunk_generation.dimension_non_existing_message"),
+                    this.width / 2,
+                    minY + (mapSizePx / 2),
+                    0xFF3366AA
+                );
+            }
             graphics.drawCenteredString(this.font, data.debugInfo, this.width / 2, minY + mapSizePx + 8, 0xFFCCCCCC);
         } else {
+            graphics.fill(minX - 1, minY - 1, minX + mapSizePx + 1, minY + mapSizePx + 1, 0xFF888888);
+            graphics.fill(minX, minY, minX + mapSizePx, minY + mapSizePx, 0xFF000000);
             graphics.drawCenteredString(this.font, "Loading chunk data...", this.width / 2, minY + (mapSizePx / 2), 0xFFAAAAAA);
         }
 
@@ -98,6 +181,7 @@ public class ChunkVisualiserScreen extends Screen {
             panOffsetX += panAmount;
             panned = true;
         }
+
         if (panned) {
             requestAreaUpdate();
             return true;
@@ -109,9 +193,7 @@ public class ChunkVisualiserScreen extends Screen {
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (button == 0) {
-            int mapSizePx = Math.min(VIEW_CHUNKS, Math.min(this.width - 40, this.height - 60));
-            float scale = (float) mapSizePx / VIEW_CHUNKS;
-
+            float scale = (float) getMapSizePx() / VIEW_CHUNKS;
             panOffsetX -= (int) Math.round(dragX / scale);
             panOffsetZ -= (int) Math.round(dragY / scale);
             requestAreaUpdate();
