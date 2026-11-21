@@ -1,6 +1,6 @@
 package com.gmail.rawlxxxviii.raws_chunk_generation.client.network;
 
-import com.gmail.rawlxxxviii.raws_chunk_generation.client.screen.ChunkVisualiserScreen;
+import com.gmail.rawlxxxviii.raws_chunk_generation.client.render.ChunkMapRenderer;
 import com.gmail.rawlxxxviii.raws_chunk_generation.network.PacketHandler;
 import com.gmail.rawlxxxviii.raws_chunk_generation.network.packet.SyncChunkAreaPacket;
 import net.minecraft.client.Minecraft;
@@ -14,8 +14,7 @@ public class ClientPacketHandler {
     }
 
     public static void handleSyncChunkArea(SyncChunkAreaPacket msg) {
-         if (Minecraft.getInstance().screen instanceof ChunkVisualiserScreen chunkVisualiserScreen) {
-             chunkVisualiserScreen.setLatestAreaDataPacket(msg);
-         }
+        ChunkMapRenderer.updateData(msg);
     }
+
 }
