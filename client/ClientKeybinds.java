@@ -1,8 +1,8 @@
 package com.gmail.rawlxxxviii.raws_chunk_generation.client;
 
 import com.gmail.rawlxxxviii.raws_chunk_generation.RawsChunkGenerationMod;
-import com.gmail.rawlxxxviii.raws_chunk_generation.network.OpenRadarPacket;
-import com.gmail.rawlxxxviii.raws_chunk_generation.network.PacketHandler;
+import com.gmail.rawlxxxviii.raws_chunk_generation.client.network.ClientPacketHandler;
+import com.gmail.rawlxxxviii.raws_chunk_generation.client.screen.ChunkVisualiserScreen;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -16,8 +16,8 @@ import org.lwjgl.glfw.GLFW;
 
 public class ClientKeybinds {
 
-    public static final KeyMapping OPEN_RADAR_KEY = new KeyMapping(
-            "key.raws_chunk_generation.open_radar",
+    public static final KeyMapping OPEN_GENERATION_SCREEN_KEY = new KeyMapping(
+            "key.raws_chunk_generation.open_generation_screen",
             KeyConflictContext.IN_GAME,
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_BACKSPACE,
@@ -28,7 +28,7 @@ public class ClientKeybinds {
     public static class ModBusEvents {
         @SubscribeEvent
         public static void registerKeys(RegisterKeyMappingsEvent event) {
-            event.register(OPEN_RADAR_KEY);
+            event.register(OPEN_GENERATION_SCREEN_KEY);
         }
     }
 
@@ -36,9 +36,12 @@ public class ClientKeybinds {
     public static class ForgeBusEvents {
         @SubscribeEvent
         public static void onKeyInput(InputEvent.Key event) {
-            while (OPEN_RADAR_KEY.consumeClick()) {
-                if (Minecraft.getInstance().screen == null) {
-                    PacketHandler.sendToServer(new OpenRadarPacket());
+            while (OPEN_GENERATION_SCREEN_KEY.consumeClick()) {
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.screen == null && mc.player != null) {
+                    if (ClientPacketHandler.isModPresentOnServer()) {
+                        mc.setScreen(new ChunkVisualiserScreen());
+                    }
                 }
             }
         }

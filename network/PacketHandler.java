@@ -1,6 +1,8 @@
 package com.gmail.rawlxxxviii.raws_chunk_generation.network;
 
 import com.gmail.rawlxxxviii.raws_chunk_generation.RawsChunkGenerationMod;
+import com.gmail.rawlxxxviii.raws_chunk_generation.network.packet.RequestChunkAreaPacket;
+import com.gmail.rawlxxxviii.raws_chunk_generation.network.packet.SyncChunkAreaPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkDirection;
@@ -24,23 +26,17 @@ public class PacketHandler {
             .simpleChannel();
 
     public static void register() {
-        INSTANCE.messageBuilder(SyncChunkRadarPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
-                .decoder(SyncChunkRadarPacket::decode)
-                .encoder(SyncChunkRadarPacket::encode)
-                .consumerMainThread(SyncChunkRadarPacket::handle)
-                .add();
+        INSTANCE.messageBuilder(RequestChunkAreaPacket.class, id(), NetworkDirection.PLAY_TO_SERVER)
+            .encoder(RequestChunkAreaPacket::encode)
+            .decoder(RequestChunkAreaPacket::decode)
+            .consumerMainThread(RequestChunkAreaPacket::handle)
+            .add();
 
-        INSTANCE.messageBuilder(StopWatchingRadarPacket.class, id(), NetworkDirection.PLAY_TO_SERVER)
-                .decoder(StopWatchingRadarPacket::decode)
-                .encoder(StopWatchingRadarPacket::encode)
-                .consumerMainThread(StopWatchingRadarPacket::handle)
-                .add();
-
-        INSTANCE.messageBuilder(OpenRadarPacket.class, id(), NetworkDirection.PLAY_TO_SERVER)
-                .decoder(OpenRadarPacket::decode)
-                .encoder(OpenRadarPacket::encode)
-                .consumerMainThread(OpenRadarPacket::handle)
-                .add();
+        INSTANCE.messageBuilder(SyncChunkAreaPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
+            .encoder(SyncChunkAreaPacket::encode)
+            .decoder(SyncChunkAreaPacket::decode)
+            .consumerMainThread(SyncChunkAreaPacket::handle)
+            .add();
     }
 
     public static <T> void sendToServer(T msg) {
