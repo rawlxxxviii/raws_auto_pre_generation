@@ -43,11 +43,10 @@ public class ChunkMapRenderer {
                         state = (packet.packedStates[byteIndex] >> ((index & 3) << 1)) & 3;
                     }
 
-                    // ABGR formaat (0xFF_BB_GG_RR)
                     int abgrColor = switch (state) {
-                        case 1 -> 0xFF555555; // Grijs (generated)
-                        case 2 -> 0xFFFF8833; // Blauw (actief aan het genereren)
-                        default -> 0xFF000000; // Zwart (onbekend)
+                        case 1 -> 0xFF555555;
+                        case 2 -> 0xFFFF8833;
+                        default -> 0xFF000000;
                     };
                     pixels.setPixelRGBA(dx, dz, abgrColor);
                     index++;
@@ -61,11 +60,7 @@ public class ChunkMapRenderer {
         return latestPacket;
     }
 
-    /**
-     * Tekent de kaart, speler-stip en groene buffer-cirkel op elk gewenst formaat (Screen of HUD).
-     */
     public static void renderMap(GuiGraphics graphics, int minX, int minY, int mapSizePx) {
-        // Kader en zwarte achtergrond
         graphics.fill(minX - 1, minY - 1, minX + mapSizePx + 1, minY + mapSizePx + 1, 0xFF888888);
         graphics.fill(minX, minY, minX + mapSizePx, minY + mapSizePx, 0xCC000000);
 
@@ -75,7 +70,6 @@ public class ChunkMapRenderer {
         float scale = (float) mapSizePx / data.width;
         graphics.blit(mapTextureLocation, minX, minY, mapSizePx, mapSizePx, 0, 0, data.width, data.height, data.width, data.height);
 
-        // Speler-stip (wit) en Online Buffer cirkel (groen)
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null && mc.level != null && mc.level.dimension().equals(data.dimension)) {
             ChunkPos pPos = mc.player.chunkPosition();

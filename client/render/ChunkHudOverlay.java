@@ -41,9 +41,8 @@ public class ChunkHudOverlay {
         if (event.phase != TickEvent.Phase.END || !enabled) return;
 
         Minecraft mc = Minecraft.getInstance();
-        // Niet pollen als het grote scherm al openstaat (dat pollt zelf al)
         if (mc.player == null || mc.level == null || mc.screen instanceof ChunkVisualiserScreen) return;
-        if (!ClientPacketHandler.isModPresentOnServer()) return;
+        if (!ClientPacketHandler.canUseVisualiser()) return;
 
         if (++tickCounter % POLL_INTERVAL_TICKS == 0) {
             requestHudUpdate();
@@ -71,9 +70,8 @@ public class ChunkHudOverlay {
         if (!enabled || event.getOverlay() != VanillaGuiOverlay.HOTBAR.type()) return;
 
         Minecraft mc = Minecraft.getInstance();
-        // Verberg de kleine HUD als het grote scherm openstaat of F1 aanstaat
         if (mc.options.hideGui || mc.screen instanceof ChunkVisualiserScreen) return;
-        if (!ClientPacketHandler.isModPresentOnServer()) return;
+        if (!ClientPacketHandler.canUseVisualiser()) return;
 
         GuiGraphics graphics = event.getGuiGraphics();
         int screenWidth = mc.getWindow().getGuiScaledWidth();

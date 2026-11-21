@@ -52,13 +52,13 @@ public class ClientKeybinds {
             if (mc.screen != null || mc.player == null) return;
 
             while (TOGGLE_HUD_KEY.consumeClick()) {
-                if (ClientPacketHandler.isModPresentOnServer()) {
+                if (ClientPacketHandler.canUseVisualiser()) {
                     ChunkHudOverlay.toggle();
                 }
             }
 
             while (OPEN_GENERATION_SCREEN_KEY.consumeClick()) {
-                if (ClientPacketHandler.isModPresentOnServer()) {
+                if (ClientPacketHandler.canUseVisualiser()) {
                     mc.setScreen(new ChunkVisualiserScreen());
                 }
             }
