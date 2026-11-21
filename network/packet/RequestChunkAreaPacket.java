@@ -72,9 +72,7 @@ public class RequestChunkAreaPacket {
                 ? ChunkStateTracker.getAreaStates(targetLevel, msg.startChunkX, msg.startChunkZ, safeWidth, safeHeight)
                 : new byte[0];
 
-            String debugInfo = exists
-                ? String.format("Dim: %s | Generated chunks: %d", msg.dimension.location(), generatedCount)
-                : String.format("Dim: %s | Unexisting (0 chunks)", msg.dimension.location());
+            String debugInfo = String.format("%s | Generated chunks: %d", msg.dimension.location(), generatedCount);
 
             PacketHandler.sendToPlayer(
                 new SyncChunkAreaPacket(msg.dimension, exists, msg.startChunkX, msg.startChunkZ, safeWidth, safeHeight, packedStates, debugInfo),

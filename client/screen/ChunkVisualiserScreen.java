@@ -135,6 +135,9 @@ public class ChunkVisualiserScreen extends Screen {
         SyncChunkAreaPacket data = ChunkMapRenderer.getLatestPacket();
 
         if (data != null && data.dimension.equals(selectedDimension)) {
+            Component dimensionTitle = Component.translatable(data.dimension.location().toLanguageKey("dimension"));
+            graphics.drawCenteredString(this.font, dimensionTitle, this.width / 2, minY + 12, 0xFFFFFFFF);
+
             if (data.dimensionExists) {
                 ChunkMapRenderer.renderMap(graphics, minX, minY, mapSizePx);
             } else {
@@ -142,7 +145,7 @@ public class ChunkVisualiserScreen extends Screen {
                 graphics.fill(minX, minY, minX + mapSizePx, minY + mapSizePx, 0xFF000000);
                 graphics.drawCenteredString(
                     this.font,
-                    Component.translatable("screen.raws_chunk_generation.dimension_non_existing_message"),
+                    Component.translatable("screen.raws_chunk_generation.dimension_non_existing_message", data.dimension.location().toString()),
                     this.width / 2,
                     minY + (mapSizePx / 2),
                     0xFF3366AA
@@ -154,6 +157,7 @@ public class ChunkVisualiserScreen extends Screen {
             graphics.fill(minX, minY, minX + mapSizePx, minY + mapSizePx, 0xFF000000);
             graphics.drawCenteredString(this.font, "Loading chunk data...", this.width / 2, minY + (mapSizePx / 2), 0xFFAAAAAA);
         }
+
 
         super.render(graphics, mouseX, mouseY, partialTick);
     }
